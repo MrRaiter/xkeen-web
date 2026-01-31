@@ -1,0 +1,49 @@
+name: Build opkg Package
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y binutils-multiarch
+    
+    - name: Make build script executable
+      run: chmod +x build-opkg.sh
+    
+    - name: Build opkg package
+      run: ./build-opkg.sh
+    
+    - name: List built files
+      run: ls -lh build/
+    
+    - name: Upload package artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: xkeen-web-ui-package
+        path: build/*.ipk
+        retention-days: 90
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: build/*.ipk
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

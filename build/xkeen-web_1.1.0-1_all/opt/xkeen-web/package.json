@@ -1,0 +1,39 @@
+{
+  "name": "xkeen-web",
+  "version": "1.0.0",
+  "description": "Lightweight web interface for XKeen configuration management",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "./build-opkg.sh",
+    "install-manual": "./install-manual.sh",
+    "uninstall": "./uninstall.sh"
+  },
+  "keywords": [
+    "xkeen",
+    "xray",
+    "dpi",
+    "web-ui",
+    "config",
+    "keenetic",
+    "opkg",
+    "entware"
+  ],
+  "author": "Your Name <your@email.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/xkeen-web.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/xkeen-web/issues"
+  },
+  "homepage": "https://github.com/yourusername/xkeen-web#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": [
+    "linux"
+  ]
+}

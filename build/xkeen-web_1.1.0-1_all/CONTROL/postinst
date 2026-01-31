@@ -1,0 +1,36 @@
+#!/bin/sh
+set -e
+
+echo "Configuring xkeen-web..."
+
+# Set executable permissions
+chmod +x /opt/xkeen-web/server.js
+chmod +x /opt/etc/init.d/S90xkeen-web
+
+# Create config directory if not exists
+[ -d /opt/etc/xray/configs ] || mkdir -p /opt/etc/xray/configs
+
+echo ""
+echo "================================================"
+echo "xkeen-web installed successfully!"
+echo "================================================"
+echo ""
+echo "Access: http://192.168.1.1:91"
+echo "Note: Port 91 is used (port 90 is for nfqws-keenetic-web)"
+echo "Default credentials:"
+echo "  Username: root"
+echo "  Password: keenetic"
+echo ""
+echo "Commands:"
+echo "  Start:   /opt/etc/init.d/S90xkeen-web start"
+echo "  Stop:    /opt/etc/init.d/S90xkeen-web stop"
+echo "  Restart: /opt/etc/init.d/S90xkeen-web restart"
+echo "  Status:  /opt/etc/init.d/S90xkeen-web status"
+echo ""
+echo "Configuration: /opt/etc/xkeen-web/xkeen-web.conf"
+echo ""
+echo "IMPORTANT: Change default password in config!"
+echo "================================================"
+echo ""
+
+exit 0

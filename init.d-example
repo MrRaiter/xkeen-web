@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Example init.d script for xkeen-web-ui
+# Copy this to /opt/etc/init.d/S90xkeen-web-ui and make executable
+# chmod +x /opt/etc/init.d/S90xkeen-web-ui
+
+ENABLED=yes
+PROCS=server.js
+PREARGS=""
+ARGS=""
+DESC="xkeen Web UI"
+PATH=/opt/sbin:/opt/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Configuration
+export PORT=91
+export XKEEN_CONFIG=/opt/etc/xkeen
+export XKEEN_SERVICE=/opt/etc/init.d/S51xkeen
+export XKEEN_USER=root
+export XKEEN_PASS=keenetic
+
+PROC_DIR=/opt/xkeen-web-ui
+
+. /opt/etc/init.d/rc.func

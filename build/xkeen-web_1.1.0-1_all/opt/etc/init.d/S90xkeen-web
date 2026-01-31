@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# Init.d script for xkeen-web
+# Compatible with Entware on Keenetic routers
+
+ENABLED=yes
+PROCS=node
+ARGS="/opt/xkeen-web/server.js"
+PREARGS=""
+DESC="xkeen Web"
+PATH=/opt/sbin:/opt/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Configuration directory
+PROC_DIR=/opt/xkeen-web
+CONFIG_FILE=/opt/etc/xkeen-web/xkeen-web.conf
+
+# Load configuration if exists
+if [ -f "$CONFIG_FILE" ]; then
+    . "$CONFIG_FILE"
+fi
+
+# Set default environment variables
+export PORT=${PORT:-91}
+export XKEEN_CONFIG=${XKEEN_CONFIG:-/opt/etc/xkeen}
+export XKEEN_SERVICE=${XKEEN_SERVICE:-/opt/etc/init.d/S24xray}
+export XKEEN_USER=${XKEEN_USER:-root}
+export XKEEN_PASS=${XKEEN_PASS:-keenetic}
+
+# Use standard Entware init functions
+. /opt/etc/init.d/rc.func
