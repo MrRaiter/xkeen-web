@@ -7,13 +7,19 @@ const crypto = require('crypto');
 const { exec } = require('child_process');
 const util = require('util');
 
-const execPromise = util.promisify(exec);
+const execPromiseRaw = util.promisify(exec);
+
+// Exec with timeout (default 30 seconds)
+function execPromise(cmd, timeoutMs = 30000) {
+  return execPromiseRaw(cmd, { timeout: timeoutMs, killSignal: 'SIGKILL' });
+}
 
 // Configuration
 const PORT = process.env.PORT || 91;
 const CONFIG_DIR = process.env.XKEEN_CONFIG || '/opt/etc/xray/configs';
 const SERVICE_NAME = 'xkeen';
-const SERVICE_SCRIPT = process.env.XKEEN_SERVICE || '/opt/etc/init.d/S24xray';
+// Use xkeen command directly with full path (init.d script may hang)
+const SERVICE_CMD = process.env.XKEEN_SERVICE || '/opt/sbin/xkeen';
 
 // Authentication
 const AUTH_USER = process.env.XKEEN_USER || 'root';
@@ -32,12 +38,12 @@ function generateSessionId() {
 function verifySession(sessionId) {
   const session = sessions.get(sessionId);
   if (!session) return false;
-  
+
   if (Date.now() - session.timestamp > SESSION_TIMEOUT) {
     sessions.delete(sessionId);
     return false;
   }
-  
+
   session.timestamp = Date.now();
   return true;
 }
@@ -46,12 +52,12 @@ function verifySession(sessionId) {
 function parseCookies(cookieHeader) {
   const cookies = {};
   if (!cookieHeader) return cookies;
-  
+
   cookieHeader.split(';').forEach(cookie => {
     const [name, value] = cookie.trim().split('=');
     cookies[name] = value;
   });
-  
+
   return cookies;
 }
 
@@ -137,14 +143,7 @@ async function removeFile(filename) {
 // Check service status
 async function getServiceStatus() {
   try {
-    // Try the init.d status command first
-    const { stdout } = await execPromise(`${SERVICE_SCRIPT} status 2>&1 || true`);
-    const output = stdout.toLowerCase();
-    // Check for common status indicators
-    if (output.includes('running') || output.includes('active') || output.includes('alive')) {
-      return true;
-    }
-    // Also check if xray process is running directly
+    // Check if xray process is running
     const { stdout: psOutput } = await execPromise('ps | grep -v grep | grep xray || true');
     return psOutput.trim().length > 0;
   } catch (e) {
@@ -159,30 +158,40 @@ function stripAnsi(text) {
 
 // Service action
 async function serviceAction(action) {
-  const allowedActions = ['start', 'stop', 'restart', 'reload', 'status'];
+  const allowedActions = ['start', 'stop', 'restart', 'status'];
   if (!allowedActions.includes(action)) {
     return { error: 'Invalid action' };
   }
-  
+
+  // xkeen uses -flag format: xkeen -start, xkeen -stop, etc.
+  const cmd = `${SERVICE_CMD} -${action}`;
+  console.log('Executing command:', cmd);
+
   try {
-    const { stdout, stderr } = await execPromise(`${SERVICE_SCRIPT} ${action} 2>&1`);
+    const { stdout, stderr } = await execPromise(cmd + ' 2>&1');
     let output = [stdout, stderr].filter(Boolean).map(stripAnsi).filter(s => s.trim());
-    
+
     // If no output, provide a default message
     if (output.length === 0 || output.every(s => !s.trim())) {
       const messages = {
         start: 'Service started successfully',
         stop: 'Service stopped successfully',
         restart: 'Service restarted successfully',
-        reload: 'Service reloaded successfully',
         status: 'Status check completed'
       };
       output = [messages[action] || 'Done'];
     }
-    
+
     return { output };
   } catch (e) {
-    return { status: e.code || 1, output: [stripAnsi(e.message) || `Failed to ${action} service`] };
+    // When command fails, capture stdout/stderr from error object
+    const errorOutput = [];
+    if (e.stdout) errorOutput.push(stripAnsi(e.stdout));
+    if (e.stderr) errorOutput.push(stripAnsi(e.stderr));
+    if (errorOutput.length === 0) {
+      errorOutput.push(`Failed to ${action} service: ${e.message}`);
+    }
+    return { status: e.code || 1, output: errorOutput.filter(s => s.trim()) };
   }
 }
 
@@ -193,7 +202,7 @@ async function upgradeService() {
       'opkg update',
       'opkg upgrade xkeen'
     ].join(' && ');
-    
+
     const { stdout, stderr } = await execPromise(commands);
     return { output: [stdout, stderr].filter(Boolean) };
   } catch (e) {
@@ -217,26 +226,26 @@ function getVersion() {
 // Request handler
 async function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  
+
   // CORS headers (optional, for development)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
-  
+
   // Parse cookies
   const cookies = parseCookies(req.headers.cookie);
   const sessionId = cookies.session;
-  
+
   // Debug logging
   console.log(`[${req.method}] ${url.pathname} - Cookie: ${sessionId ? sessionId.substring(0, 8) + '...' : 'none'} - Sessions: ${sessions.size}`);
-  
+
   // Check if authenticated (except for login and static files)
   const isAuthenticated = sessionId && verifySession(sessionId);
   console.log(`Auth check: sessionId=${!!sessionId}, verified=${isAuthenticated}`);
-  
+
   if (req.method === 'POST' && url.pathname === '/api') {
     try {
       const data = await parseBody(req);
-      
+
       // Login endpoint
       if (data.cmd === 'login') {
         console.log(`Login attempt: user=${data.user}, expected=${AUTH_USER}`);
@@ -244,7 +253,7 @@ async function handleRequest(req, res) {
           const newSessionId = generateSessionId();
           sessions.set(newSessionId, { timestamp: Date.now() });
           console.log(`Login success! New session: ${newSessionId.substring(0, 8)}... Total sessions: ${sessions.size}`);
-          
+
           res.writeHead(200, {
             'Content-Type': 'application/json',
             'Set-Cookie': `session=${newSessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600`
@@ -257,7 +266,7 @@ async function handleRequest(req, res) {
           return;
         }
       }
-      
+
       // Logout endpoint
       if (data.cmd === 'logout') {
         if (sessionId) {
@@ -270,36 +279,36 @@ async function handleRequest(req, res) {
         res.end(JSON.stringify({ status: 0 }));
         return;
       }
-      
+
       // Check authentication for other endpoints
       if (!isAuthenticated) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 401, error: 'Unauthorized' }));
         return;
       }
-      
+
       // Handle commands
       let response = {};
-      
+
       switch (data.cmd) {
         case 'filenames':
           const files = await getFiles();
           const service = await getServiceStatus();
           response = { files, service };
           break;
-          
+
         case 'filecontent':
           response = await getFileContent(data.filename);
           break;
-          
+
         case 'filesave':
           response = await saveFile(data.filename, data.content || '');
           break;
-          
+
         case 'fileremove':
           response = await removeFile(data.filename);
           break;
-          
+
         case 'start':
         case 'stop':
         case 'restart':
@@ -307,25 +316,25 @@ async function handleRequest(req, res) {
         case 'status':
           response = await serviceAction(data.cmd);
           break;
-          
+
         case 'upgrade':
           response = await upgradeService();
           break;
-          
+
         default:
           response = { error: 'Unknown command' };
       }
-      
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(response));
-      
+
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
     }
     return;
   }
-  
+
   // Serve static files
   if (req.method === 'GET') {
     // Require auth for main page
@@ -335,8 +344,8 @@ async function handleRequest(req, res) {
         const loginPage = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf-8')
           .replace('__VERSION__', getVersion())
           .replace('__AUTHENTICATED__', 'false');
-        
-        res.writeHead(200, { 
+
+        res.writeHead(200, {
           'Content-Type': 'text/html',
           'Cache-Control': 'no-store, no-cache, must-revalidate',
           'Pragma': 'no-cache',
@@ -345,12 +354,12 @@ async function handleRequest(req, res) {
         res.end(loginPage);
         return;
       }
-      
+
       const indexPage = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf-8')
         .replace('__VERSION__', getVersion())
         .replace('__AUTHENTICATED__', 'true');
-      
-      res.writeHead(200, { 
+
+      res.writeHead(200, {
         'Content-Type': 'text/html',
         'Cache-Control': 'no-store, no-cache, must-revalidate',
         'Pragma': 'no-cache',
@@ -359,7 +368,7 @@ async function handleRequest(req, res) {
       res.end(indexPage);
       return;
     }
-    
+
     // Serve favicon
     if (url.pathname === '/favicon.ico') {
       res.writeHead(404);
@@ -367,7 +376,7 @@ async function handleRequest(req, res) {
       return;
     }
   }
-  
+
   // 404
   res.writeHead(404);
   res.end('Not Found');

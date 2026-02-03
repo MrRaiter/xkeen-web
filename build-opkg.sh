@@ -140,20 +140,25 @@ EOF
 echo "Building package..."
 cd "$BUILD_DIR"
 
-# Create data.tar.gz with explicit format
-tar --format=gnu -czf data.tar.gz -C "${PKG_NAME}_${PKG_VERSION}-${PKG_RELEASE}_${PKG_ARCH}" \
-    --exclude=CONTROL \
-    opt
+PKG_BUILD_DIR="${PKG_NAME}_${PKG_VERSION}-${PKG_RELEASE}_${PKG_ARCH}"
 
-# Create control.tar.gz with explicit format
-tar --format=gnu -czf control.tar.gz -C "${PKG_NAME}_${PKG_VERSION}-${PKG_RELEASE}_${PKG_ARCH}/CONTROL" .
+# Create control.tar.gz
+cd "${PKG_BUILD_DIR}/CONTROL"
+tar czvf ../../control.tar.gz .
+cd ../..
+
+# Create data.tar.gz (only the opt directory, not CONTROL)
+cd "${PKG_BUILD_DIR}"
+tar czvf ../data.tar.gz ./opt
+cd ..
 
 # Create debian-binary
 echo "2.0" > debian-binary
 
-# Create ipk package with explicit format
+# Create ipk package (using tar, same as nfqws-keenetic does)
 IPK_FILE="${PKG_NAME}_${PKG_VERSION}-${PKG_RELEASE}_${PKG_ARCH}.ipk"
-ar -r "$IPK_FILE" debian-binary control.tar.gz data.tar.gz
+rm -f "$IPK_FILE"
+tar czvf "$IPK_FILE" control.tar.gz data.tar.gz debian-binary
 
 # Clean up temporary files
 rm -f debian-binary control.tar.gz data.tar.gz
