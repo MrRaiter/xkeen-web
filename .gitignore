@@ -1,4 +1,15 @@
-node_modules/
+# Build output
+build/
+*.ipk
+
+# Go
+xkeen-web
+
+# Logs
 *.log
+
+# Environment
 .env
+
+# OS
 .DS_Store

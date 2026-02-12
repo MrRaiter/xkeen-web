@@ -1,7 +1,0 @@
-#!/bin/sh
-set -e
-
-echo "xkeen-web removed"
-echo "Config files preserved in /opt/etc/xkeen-web/"
-
-exit 0

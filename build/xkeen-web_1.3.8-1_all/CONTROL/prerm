@@ -1,7 +1,0 @@
-#!/bin/sh
-set -e
-
-echo "Stopping xkeen-web..."
-/opt/etc/init.d/S90xkeen-web stop 2>/dev/null || true
-
-exit 0

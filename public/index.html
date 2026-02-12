@@ -6,21 +6,29 @@
   <title>xkeen Web UI</title>
   <style>
     :root {
-      --bg-primary: #0d1a2d;
-      --bg-secondary: #0a1525;
-      --bg-tertiary: #132238;
-      --bg-input: #0f1e33;
-      --text-primary: #8899aa;
-      --text-secondary: #556677;
-      --text-highlight: #aabbcc;
-      --border-color: #1a3050;
-      --accent: #3d7090;
-      --accent-hover: #4d8cb0;
-      --accent-glow: rgba(61, 112, 144, 0.3);
-      --success: #4a9;
-      --danger: #c55;
-      --warning: #ca5;
-      --tab-active: #1a3050;
+      --bg-primary: #0a1929;
+      --bg-secondary: #071422;
+      --bg-tertiary: #0d2137;
+      --bg-input: #0a1929;
+      --text-primary: #b0c4d8;
+      --text-secondary: #5a7a94;
+      --text-highlight: #e0e8f0;
+      --border-color: #1e3a5f;
+      --accent: #4a90c2;
+      --accent-hover: #5aa0d2;
+      --accent-glow: rgba(74, 144, 194, 0.3);
+      --success: #50c878;
+      --danger: #e74c3c;
+      --warning: #f0a030;
+      --tab-active: #1e3a5f;
+      /* Syntax highlighting */
+      --syn-comment: #5a7a94;
+      --syn-string: #98c379;
+      --syn-number: #d19a66;
+      --syn-keyword: #c678dd;
+      --syn-variable: #61afef;
+      --syn-value: #e5c07b;
+      --syn-key: #56b6c2;
     }
 
     * {
@@ -248,33 +256,90 @@
       padding: 1rem 0.5rem;
       background: var(--bg-secondary);
       color: var(--text-secondary);
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-      font-size: 0.85rem;
-      line-height: 1.5;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+      font-size: 0.8rem;
+      line-height: 1.6;
       text-align: right;
       user-select: none;
-      min-width: 3rem;
+      min-width: 3.5rem;
       border-right: 1px solid var(--border-color);
       white-space: pre;
       overflow-y: hidden;
     }
 
-    .editor {
+    .editor-wrapper {
       flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .editor-highlight {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       padding: 1rem;
-      background: var(--bg-primary);
+      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      tab-size: 2;
+      color: var(--text-highlight);
+      pointer-events: none;
+      overflow: auto;
+    }
+
+    .editor-highlight::-webkit-scrollbar {
+      display: none;
+    }
+
+    .editor {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      tab-size: 2;
+      background: transparent;
       border: none;
       resize: none;
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-      font-size: 0.85rem;
-      line-height: 1.5;
-      color: var(--text-highlight);
+      color: transparent;
+      caret-color: var(--text-highlight);
       outline: none;
+      -webkit-text-fill-color: transparent;
+      overflow: auto;
     }
 
     .editor::placeholder {
       color: var(--text-secondary);
+      -webkit-text-fill-color: var(--text-secondary);
     }
+
+    .editor:focus::placeholder {
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Syntax highlighting */
+    .syn-comment { color: var(--syn-comment); font-style: italic; }
+    .syn-string { color: var(--syn-string); }
+    .syn-number { color: var(--syn-number); }
+    .syn-keyword { color: var(--syn-keyword); }
+    .syn-variable { color: var(--syn-variable); }
+    .syn-value { color: var(--syn-value); }
+    .syn-key { color: var(--syn-key); }
+    .syn-bracket { color: var(--text-secondary); }
+    .syn-operator { color: var(--danger); }
 
     .editor:disabled {
       opacity: 0.5;
@@ -520,13 +585,16 @@
 
     <div class="editor-container">
       <div class="line-numbers" id="line-numbers">1</div>
-      <textarea class="editor" id="editor" placeholder="Select a file to edit..." spellcheck="false"></textarea>
+      <div class="editor-wrapper" id="editor-wrapper">
+        <div class="editor-highlight" id="editor-highlight"></div>
+        <textarea class="editor" id="editor" placeholder="Select a file to edit..." spellcheck="false"></textarea>
+      </div>
     </div>
 
     <footer>
       <div class="footer-links">
-        <a href="https://github.com/Skrill0/XKeen" target="_blank">Github</a> ·
-        <a href="https://github.com/Skrill0/XKeen" target="_blank">Repository</a>
+        <a href="https://github.com/MrRaiter/xkeen-web" target="_blank">Github</a> ·
+        <a href="https://github.com/Skrill0/XKeen" target="_blank">Xkeen Main Repo</a>
       </div>
       <div>v__VERSION__</div>
     </footer>
@@ -635,6 +703,8 @@
         this.elements = {
           tabs: document.getElementById('tabs'),
           editor: document.getElementById('editor'),
+          editorHighlight: document.getElementById('editor-highlight'),
+          editorWrapper: document.getElementById('editor-wrapper'),
           lineNumbers: document.getElementById('line-numbers'),
           mainControls: document.getElementById('main-controls'),
 
@@ -693,9 +763,11 @@
           this.updateLineNumbers();
         });
 
-        // Sync scroll between editor and line numbers
+        // Sync scroll between editor, line numbers, and highlight
         this.elements.editor.addEventListener('scroll', () => {
           this.elements.lineNumbers.scrollTop = this.elements.editor.scrollTop;
+          this.elements.editorHighlight.scrollTop = this.elements.editor.scrollTop;
+          this.elements.editorHighlight.scrollLeft = this.elements.editor.scrollLeft;
         });
 
         // Keyboard shortcuts
@@ -959,6 +1031,65 @@
           html += i + '\n';
         }
         this.elements.lineNumbers.textContent = html || '1';
+        this.highlightSyntax();
+      }
+
+      highlightSyntax() {
+        const code = this.elements.editor.value;
+        const highlighted = this.syntaxHighlight(code);
+        this.elements.editorHighlight.innerHTML = highlighted;
+      }
+
+      syntaxHighlight(code) {
+        // Escape HTML
+        const escape = (str) => str
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+
+        // Process line by line
+        const lines = code.split('\n');
+        return lines.map(line => {
+          // Comment lines (# ... or // ...)
+          if (/^\s*[#/]{1,2}/.test(line)) {
+            return '<span class="syn-comment">' + escape(line) + '</span>';
+          }
+
+          // Process the line for other patterns
+          let result = escape(line);
+
+          // JSON-like patterns for config files
+          // Keys in quotes followed by colon: "key":
+          result = result.replace(/(&quot;)([^&]+?)(&quot;)(\s*:)/g,
+            '$1<span class="syn-key">$2</span>$3$4');
+
+          // String values in quotes: "value"
+          result = result.replace(/(&quot;)([^&]*?)(&quot;)/g,
+            '<span class="syn-string">$1$2$3</span>');
+
+          // Numbers (standalone, not inside tags)
+          result = result.replace(/(^|[^\w&])(\d+(?:\.\d+)?)(?=[^\w]|$)/g,
+            '$1<span class="syn-number">$2</span>');
+
+          // Boolean and null values
+          result = result.replace(/\b(true|false|null)\b/g,
+            '<span class="syn-keyword">$1</span>');
+
+          // Shell variable definitions: VAR=value (at line start)
+          result = result.replace(/^(\s*)([A-Z_][A-Z0-9_]*)(=)/m,
+            '$1<span class="syn-variable">$2</span><span class="syn-keyword">$3</span>');
+
+          // Environment variables: $VAR or ${VAR}
+          result = result.replace(/(\$\{?)([A-Z_][A-Z0-9_]*)(\}?)/g,
+            '<span class="syn-variable">$1$2$3</span>');
+
+          // JSON brackets and braces
+          result = result.replace(/([{}\[\]])/g,
+            '<span class="syn-keyword">$1</span>');
+
+          return result;
+        }).join('\n');
       }
 
       showLogin() {
@@ -990,11 +1121,6 @@
       }
 
       confirm(text) {
-        console.log('confirm() called with:', text);
-        console.log('confirmModal element:', this.elements.confirmModal);
-        console.log('btnConfirmYes element:', this.elements.btnConfirmYes);
-        console.log('btnConfirmNo element:', this.elements.btnConfirmNo);
-
         if (!this.elements.confirmModal || !this.elements.btnConfirmYes || !this.elements.btnConfirmNo) {
           console.error('Confirm modal elements missing!');
           return Promise.resolve(window.confirm(text));
